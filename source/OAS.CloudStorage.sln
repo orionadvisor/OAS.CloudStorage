@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAS.CloudStorage.Core.Test", "OAS.CloudStorage.Core.Test\OAS.CloudStorage.Core.Test.csproj", "{A8D3BA70-E126-4A2A-BE27-A47169ACB2D7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAS.CloudStorage.Box", "OAS.CloudStorage.Box\OAS.CloudStorage.Box.csproj", "{69E49B22-1F71-4A08-BC3E-BB5B99D67CAA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAS.CloudStorage.Core", "OAS.CloudStorage.Core\OAS.CloudStorage.Core.csproj", "{54CD42F0-FCA6-485E-B2F3-808C321DD1EA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAS.CloudStorage.DropBox.CoreApi", "OAS.CloudStorage.DropBox\OAS.CloudStorage.DropBox.CoreApi\OAS.CloudStorage.DropBox.CoreApi.csproj", "{4AE8D3F9-3CD1-4A6F-A309-C3B8213DFB0C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAS.CloudStorage.Egnyte", "OAS.CloudStorage.Egnyte\OAS.CloudStorage.Egnyte.csproj", "{383AA16A-CFC3-42AB-A76D-D88549CAA0D9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+		WEB-LOCAL|Any CPU = WEB-LOCAL|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A8D3BA70-E126-4A2A-BE27-A47169ACB2D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8D3BA70-E126-4A2A-BE27-A47169ACB2D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8D3BA70-E126-4A2A-BE27-A47169ACB2D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8D3BA70-E126-4A2A-BE27-A47169ACB2D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8D3BA70-E126-4A2A-BE27-A47169ACB2D7}.WEB-LOCAL|Any CPU.ActiveCfg = WEB-LOCAL|Any CPU
+		{A8D3BA70-E126-4A2A-BE27-A47169ACB2D7}.WEB-LOCAL|Any CPU.Build.0 = WEB-LOCAL|Any CPU
+		{69E49B22-1F71-4A08-BC3E-BB5B99D67CAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{69E49B22-1F71-4A08-BC3E-BB5B99D67CAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{69E49B22-1F71-4A08-BC3E-BB5B99D67CAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{69E49B22-1F71-4A08-BC3E-BB5B99D67CAA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{69E49B22-1F71-4A08-BC3E-BB5B99D67CAA}.WEB-LOCAL|Any CPU.ActiveCfg = WEB-LOCAL|Any CPU
+		{69E49B22-1F71-4A08-BC3E-BB5B99D67CAA}.WEB-LOCAL|Any CPU.Build.0 = WEB-LOCAL|Any CPU
+		{54CD42F0-FCA6-485E-B2F3-808C321DD1EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54CD42F0-FCA6-485E-B2F3-808C321DD1EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54CD42F0-FCA6-485E-B2F3-808C321DD1EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54CD42F0-FCA6-485E-B2F3-808C321DD1EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{54CD42F0-FCA6-485E-B2F3-808C321DD1EA}.WEB-LOCAL|Any CPU.ActiveCfg = WEB-LOCAL|Any CPU
+		{54CD42F0-FCA6-485E-B2F3-808C321DD1EA}.WEB-LOCAL|Any CPU.Build.0 = WEB-LOCAL|Any CPU
+		{4AE8D3F9-3CD1-4A6F-A309-C3B8213DFB0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4AE8D3F9-3CD1-4A6F-A309-C3B8213DFB0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4AE8D3F9-3CD1-4A6F-A309-C3B8213DFB0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4AE8D3F9-3CD1-4A6F-A309-C3B8213DFB0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4AE8D3F9-3CD1-4A6F-A309-C3B8213DFB0C}.WEB-LOCAL|Any CPU.ActiveCfg = WEB-LOCAL|Any CPU
+		{4AE8D3F9-3CD1-4A6F-A309-C3B8213DFB0C}.WEB-LOCAL|Any CPU.Build.0 = WEB-LOCAL|Any CPU
+		{383AA16A-CFC3-42AB-A76D-D88549CAA0D9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{383AA16A-CFC3-42AB-A76D-D88549CAA0D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{383AA16A-CFC3-42AB-A76D-D88549CAA0D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{383AA16A-CFC3-42AB-A76D-D88549CAA0D9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{383AA16A-CFC3-42AB-A76D-D88549CAA0D9}.WEB-LOCAL|Any CPU.ActiveCfg = WEB-LOCAL|Any CPU
+		{383AA16A-CFC3-42AB-A76D-D88549CAA0D9}.WEB-LOCAL|Any CPU.Build.0 = WEB-LOCAL|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
