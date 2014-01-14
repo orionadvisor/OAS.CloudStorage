@@ -46,7 +46,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=4.5.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\..\WebApi\OAS.WebApi\packages\Newtonsoft.Json.5.0.6\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\..\packages\Newtonsoft.Json.5.0.6\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -80,10 +80,6 @@
     <ProjectReference Include="..\..\OAS.CloudStorage.Core\OAS.CloudStorage.Core.csproj">
       <Project>{54cd42f0-fca6-485e-b2f3-808c321dd1ea}</Project>
       <Name>OAS.CloudStorage.Core</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\..\OAS.DataModel\OAS.DataModel.csproj">
-      <Project>{892a2467-3977-46ed-8ba0-62c6f7796bbd}</Project>
-      <Name>OAS.DataModel</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
