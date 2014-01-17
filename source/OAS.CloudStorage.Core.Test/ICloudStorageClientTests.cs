@@ -293,7 +293,7 @@ namespace OAS.CloudStorage.Core.Test {
 				Assert.Inconclusive( "Couldn't clean up files" );
 			}
 		}
-		
+
 		[TestMethod]
 		public void Can_Upload_File_Over_Existing_File( ) {
 			FileInfo localFile1 = null;
@@ -577,6 +577,29 @@ namespace OAS.CloudStorage.Core.Test {
 			this.AssertIsFolder( metaData, path );
 		}
 
+		[TestMethod]
+		public void Can_Get_MetaData_Folder_Obscene_Number_Of_SubFolders( ) {
+			var count = 105;
+			try {
+				for( var i = 0; i < count; i++ ) {
+					var newfolder = this._client.CreateFolder( string.Format( this.TestFolder + "/Obscene/{0}", i ) ).Result;
+				}
+			} catch {
+				Assert.Inconclusive( "Couldn't make folders" );
+			}
+
+			var metaData = this._client.GetMetaData( this.TestFolder + "/Obscene" ).Result;
+			Assert.IsNotNull( metaData );
+			this.AssertIsFolder( metaData, this.TestFolder + "/Obscene" );
+			Assert.AreEqual( count, ( metaData as FolderMetaDataBase ).Folders.Count, "Number of child folders incorrect." );
+
+			try {
+				var deleted = this._client.Delete( this.TestFolder + "/Obscene" ).Result;
+			} catch {
+				Assert.Inconclusive( "Couldn't clean up folder" );
+			}
+		}
+		
 		[TestMethod]
 		public void Cannot_Get_MetaData_that_doesnt_Exist( ) {
 			string path = null;

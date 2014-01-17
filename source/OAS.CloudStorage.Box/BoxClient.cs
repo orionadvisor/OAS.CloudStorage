@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -46,11 +47,17 @@ namespace OAS.CloudStorage.Box {
 		private BoxUser _userLogin;
 		private HttpClient _client;
 
+		private Dictionary<string, FileInfo> cached = new Dictionary<string, FileInfo>( );
 		private enum BoxItemType {
 			File,
 			Folder,
 			Unknown
 		};
+
+		private class FileInfo {
+			public string Id { get; set; }
+			public bool IsFolder { get; set; }
+		}
 
 		/// <summary>
 		/// Box constructor
@@ -206,7 +213,29 @@ namespace OAS.CloudStorage.Box {
 				default:
 					throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
 			}
-			return await response.Content.ReadAsAsync<BoxFolderInternal>( );
+			var requestedFolder = await response.Content.ReadAsAsync<BoxFolderInternal>( );
+			return requestedFolder;
+		}
+
+		private async Task<ItemCollectionInternal> GetFolderItemsAsync( string id, int limit, int offset ) {
+			var queryParams = new List<KeyValuePair<string, string>> {
+				new KeyValuePair<string, string>( "limit", limit.ToString() ),
+				new KeyValuePair<string, string>( "offset", offset.ToString() ),
+			};
+			var response = await _client.GetAsync( string.Format( "{0}/{1}/folders/{2}/items{3}", ApiBaseUrl, Version, id,
+					queryParams.ToQueryString( )
+			) );
+
+			switch( response.StatusCode ) {
+				case HttpStatusCode.OK:
+					break;
+				case HttpStatusCode.NotFound:
+					throw new CloudStorageItemNotFoundException( "Could not find folder." );
+				default:
+					throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
+			}
+			var requestedFolderItems = await response.Content.ReadAsAsync<ItemCollectionInternal>( );
+			return requestedFolderItems;
 		}
 
 		private async Task<BoxFileInternal> GetFileInformationAsync( string id ) {
@@ -219,7 +248,8 @@ namespace OAS.CloudStorage.Box {
 				default:
 					throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
 			}
-			return await response.Content.ReadAsAsync<BoxFileInternal>( );
+			var requestedFile = await response.Content.ReadAsAsync<BoxFileInternal>( );
+			return requestedFile;
 		}
 
 		/// <summary>
@@ -243,6 +273,10 @@ namespace OAS.CloudStorage.Box {
 			var result = await this.getItemByPath( path, BoxItemType.Unknown, true );
 
 			if( result.Type.ToLowerInvariant( ) == "folder" ) {
+				if( result.Item_Collection.Total_Count != result.Item_Collection.Entries.Count ) {
+					List<BoxItemInternal> contents = await this.getAllItemsForFolder( result.Id, result.Item_Collection.Entries.Count );
+					result.Item_Collection.Entries.AddRange( contents );
+				}
 				return new BoxFolderMetaData( result );
 			} else if( result.Type.ToLowerInvariant( ) == "file" ) {
 				var versions = this.getVersions( (BoxFileInternal) result ).Result;
@@ -634,33 +668,40 @@ namespace OAS.CloudStorage.Box {
 			if( ( itemType == BoxItemType.Unknown ) && !errorIfNotFound ) {
 				throw new CloudStorageException( "Parameter validation: cannot create an item of unknown type." );
 			}
-
-			path = path.Trim( '/' );
-			var pathItems = path.Split( '/' );
-			Tuple<BoxItemInternal, bool, int> lastExistingItemInThePathInfo = await this.walkFileSystemTreeToGetLastItemExistingInThePath( pathItems );
 			BoxItemInternal targetItem;
+			path = path.Trim( '/' );
 
-			if( !lastExistingItemInThePathInfo.Item2 ) {
-				//The whole path doesn't exist. It needs to be created
-				if( errorIfNotFound ) {
-					throw new BoxItemNotFoundException( );
-				}
-
-				if( itemType == BoxItemType.Folder ) {
-					targetItem = await this.createFolderForRemainingPath( lastExistingItemInThePathInfo.Item1.Id, pathItems, lastExistingItemInThePathInfo.Item3 );
+			if( cached.ContainsKey( path ) && cached[ path ] != null ) {
+				var c = cached[ path ];
+				if( c.IsFolder ) {
+					targetItem = await this.GetFolderInformationAsync( c.Id );
 				} else {
-					throw new NotImplementedException( "The type " + itemType.ToString( ) + " was not expected by GetItemByPath." );
+					targetItem = await this.GetFileInformationAsync( c.Id );
 				}
+
 			} else {
-				if( lastExistingItemInThePathInfo.Item1.Type.ToLowerInvariant( ) == "folder" ) {
-					targetItem = await this.GetFolderInformationAsync( lastExistingItemInThePathInfo.Item1.Id );
-				} else if( lastExistingItemInThePathInfo.Item1.Type.ToLowerInvariant( ) == "file" ) {
-					targetItem = await this.GetFileInformationAsync( lastExistingItemInThePathInfo.Item1.Id );
+				var pathItems = path.Split( '/' );
+				Tuple<FileInfo, bool, int> lastExistingItemInThePathInfo = await this.walkFileSystemTreeToGetLastItemExistingInThePath( pathItems );
+
+				if( !lastExistingItemInThePathInfo.Item2 ) {
+					//The whole path doesn't exist. It needs to be created
+					if( errorIfNotFound ) {
+						throw new BoxItemNotFoundException( );
+					}
+
+					if( itemType == BoxItemType.Folder ) {
+						targetItem = await this.createFolderForRemainingPath( lastExistingItemInThePathInfo.Item1.Id, pathItems, lastExistingItemInThePathInfo.Item3 );
+					} else {
+						throw new NotImplementedException( "The type " + itemType.ToString( ) + " was not expected by GetItemByPath." );
+					}
 				} else {
-					throw new NotImplementedException( "The type " + itemType.ToString( ) + " was not expected by GetItemByPath." );
+					if( lastExistingItemInThePathInfo.Item1.IsFolder ) {
+						targetItem = await this.GetFolderInformationAsync( lastExistingItemInThePathInfo.Item1.Id );
+					} else {
+						targetItem = await this.GetFileInformationAsync( lastExistingItemInThePathInfo.Item1.Id );
+					}
 				}
 			}
-
 			return targetItem;
 		}
 
@@ -708,36 +749,110 @@ namespace OAS.CloudStorage.Box {
 		/// <param name="pathItems"></param>
 		/// <returns></returns>
 		/// <remarks>Because of the limitations of the Box API we are recursively walking file system.</remarks>
-		private async Task<Tuple<BoxItemInternal, bool, int>> walkFileSystemTreeToGetLastItemExistingInThePath( string[ ] pathItems ) {
-			BoxItemInternal currentResult = null;
+		private async Task<Tuple<FileInfo, bool, int>> walkFileSystemTreeToGetLastItemExistingInThePath( string[ ] pathItems ) {
+			FileInfo currentResult = null;
 			int currentItemIndex;
+			string currentItemPath = string.Empty;
+			string workingPath = string.Empty;
+
 
 			for( currentItemIndex = 0; currentItemIndex < pathItems.Length; ++currentItemIndex ) {
-				BoxItemInternal result = null;
-				BoxFolderInternal currentFolder = await this.GetFolderInformationAsync( currentResult == null ? "0" : currentResult.Id );
+				if( workingPath == string.Empty ) {
+					workingPath = pathItems[ currentItemIndex ];
+				} else {
+					workingPath = string.Format( "{0}/{1}", workingPath, pathItems[ currentItemIndex ] );
+				}
 
-				for( int i = 0; i < currentFolder.Item_Collection.Total_Count; ++i ) {
-					if( currentFolder.Item_Collection.Entries[ i ].Name == pathItems[ currentItemIndex ] ) {
-						result = currentFolder.Item_Collection.Entries[ i ];
+				if( cached.ContainsKey( workingPath ) ) {
+					var cachedResult = cached[ workingPath ];
+					if( cachedResult != null ) {
+						currentResult = cachedResult;
+					} else {
+						//return the last item we found
+						break;
+					}
+				} else {
+					BoxItemInternal result = null;
+
+					List<BoxItemInternal> contents = await this.getAllItemsForFolder( currentResult == null ? "0" : currentResult.Id, 0 );
+
+					for( int i = 0; i < contents.Count; ++i ) {
+						var entry = contents[ i ];
+						var fi = new FileInfo {
+							Id = entry.Id
+						};
+						switch( entry.Type.ToLowerInvariant( ) ) {
+							case "folder":
+								fi.IsFolder = true;
+								break;
+							case "file":
+								fi.IsFolder = false;
+								break;
+							default:
+								throw new NotImplementedException( "The type " + entry.Type + " was not expected by GetItemByPath." );
+						}
+						string path;
+
+						if( currentItemPath == string.Empty ) {
+							path = entry.Name;
+						} else {
+							path = string.Format( "{0}/{1}", currentItemPath, entry.Name );
+						}
+						if( !cached.ContainsKey( path ) ) {
+							cached.Add( path, fi );
+						}
+					}
+					if( cached.ContainsKey( workingPath ) ) {
+						currentResult = cached[ workingPath ];
+					} else {
+						cached.Add( workingPath, null );
+						//return the last item we found
 						break;
 					}
 				}
-
-				if( result == null ) {
-					break;
-				}
-
-				currentResult = result;
+				currentItemPath = workingPath;
 			}
 
-			return new Tuple<BoxItemInternal, bool, int>( currentResult, currentItemIndex == pathItems.Length, currentItemIndex );
+			return new Tuple<FileInfo, bool, int>( currentResult, currentItemIndex == pathItems.Length, currentItemIndex );
 		}
 
+		private async Task<List<BoxItemInternal>> getAllItemsForFolder( string id, int initailOffset ) {
+			const int limit = 100;
+			int offset = initailOffset;
+			List<BoxItemInternal> contents = new List<BoxItemInternal>( );
+			int totalCount;
+
+			do {
+				ItemCollectionInternal currentFolderItems = await this.GetFolderItemsAsync( id, limit, offset );
+				contents.AddRange( currentFolderItems.Entries );
+				totalCount = currentFolderItems.Total_Count;
+				offset += limit;
+			} while( contents.Count + initailOffset < totalCount );
+
+			return contents;
+		}
 		private async Task<BoxItemInternal> createFolderForRemainingPath( string parentId, string[ ] pathItems, int startIndex ) {
 			BoxFolderInternal currentFolder = null;
+			string path = string.Empty;
+
+			for( int i = 0; i < startIndex; ++i ) {
+				if( path == string.Empty ) {
+					path = pathItems[ i ];
+				} else {
+					path = string.Format( "{0}/{1}", path, pathItems[ i ] );
+				}
+			}
 
 			for( int i = startIndex; i < pathItems.Length; ++i ) {
+				path = string.Format( "{0}/{1}", path, pathItems[ i ] );
 				currentFolder = await this.createFolder( parentId, pathItems[ i ] );
+
+				if( cached.ContainsKey( path ) ) {
+					cached[ path ] = new FileInfo { Id = currentFolder.Id, IsFolder = true };
+				} else {
+					cached.Add( path, new FileInfo { Id = currentFolder.Id, IsFolder = true } );
+				}
+
 				parentId = currentFolder.Id;
 			}
 
