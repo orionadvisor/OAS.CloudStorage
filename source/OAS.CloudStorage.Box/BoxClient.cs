@@ -10,8 +10,10 @@ using System.Net.Http;
 using System.Net.Http.Formatting;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using System.Web.Caching;
 using OAS.CloudStorage.Core;
 using OAS.CloudStorage.Core.Exceptions;
 using OAS.CloudStorage.Box.Models;
@@ -304,17 +306,29 @@ namespace OAS.CloudStorage.Box {
 
 		public async Task<Stream> GetFile( string path ) {
 			var fileEntry = await this.getFileByPath( path, true );
+			HttpResponseMessage response;
+			bool retry;
 
-			var response = await _client.GetAsync( string.Format( "{0}/{1}/files/{2}/content", ApiBaseUrl, Version, fileEntry.Id ) );
-			switch( response.StatusCode ) {
-				case HttpStatusCode.OK:
-					break;
-				case HttpStatusCode.Unauthorized:
-					var msg = await response.Content.ReadAsStringAsync( );
-					throw new CloudStorageAuthorizationException( msg );
-				default:
-					throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
-			}
+			do {
+				response = await _client.GetAsync( string.Format( "{0}/{1}/files/{2}/content", ApiBaseUrl, Version, fileEntry.Id ) );
+				switch( response.StatusCode ) {
+					case HttpStatusCode.OK:
+						retry = false;
+						break;
+					case HttpStatusCode.Accepted:
+						retry = true;
+						var retryAfter = response.Headers.RetryAfter.Delta;
+						if( retryAfter.HasValue ) {
+							Thread.Sleep( retryAfter.Value );
+						}
+						break;
+					case HttpStatusCode.Unauthorized:
+						var msg = await response.Content.ReadAsStringAsync( );
+						throw new CloudStorageAuthorizationException( msg );
+					default:
+						throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
+				}
+			} while( retry );
 			return await response.Content.ReadAsStreamAsync( );
 		}
 
@@ -392,6 +406,10 @@ namespace OAS.CloudStorage.Box {
 
 			var file = new BoxFileInternal( );
 			mergeItemToFile( col.Entries.First( ), file );
+			if( !cached.ContainsKey( path ) ) {
+				cached.Add( path, new FileInfo { Id = file.Id, IsFolder = false } );
+			}
+
 			return new BoxFileMetaData( file );
 		}
 
@@ -420,6 +438,9 @@ namespace OAS.CloudStorage.Box {
 						throw new CloudStorageRequestFailedException( "Unable to delete folder." );
 				}
 
+				if( cached.ContainsKey( path ) ) {
+					cached.Remove( path );
+				}
 				return new BoxFolderMetaData( item ) {
 					Path = response.Content.Headers.ContentLocation.ToString( ),
 					IsDeleted = true
@@ -435,6 +456,9 @@ namespace OAS.CloudStorage.Box {
 						break;
 					default:
 						throw new CloudStorageRequestFailedException( "Unable to delete file." );
+				}
+				if( cached.ContainsKey( path ) ) {
+					cached.Remove( path );
 				}
 				return new BoxFileMetaData( item ) {
 					Path = response.Content.Headers.ContentLocation.ToString( ),
@@ -473,7 +497,14 @@ namespace OAS.CloudStorage.Box {
 					default:
 						throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
 				}
-				return new BoxFolderMetaData( await response.Content.ReadAsAsync<BoxFolderInternal>( ) );
+				var data = await response.Content.ReadAsAsync<BoxFolderInternal>( );
+				if( !cached.ContainsKey( toPath ) ) {
+					cached.Add( toPath, new FileInfo {
+						Id = data.Id,
+						IsFolder = true
+					} );
+				}
+				return new BoxFolderMetaData( data );
 
 			} else if( sourceItem.Type.ToLowerInvariant( ) == "file" ) {
 				var response = await _client.PostAsJsonAsync( string.Format( "{0}/{1}/files/{2}/copy", ApiBaseUrl, Version, sourceItem.Id ), new {
@@ -494,7 +525,14 @@ namespace OAS.CloudStorage.Box {
 					default:
 						throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
 				}
-				return new BoxFileMetaData( await response.Content.ReadAsAsync<BoxFileInternal>( ) );
+				var data = await response.Content.ReadAsAsync<BoxFileInternal>( );
+				if( !cached.ContainsKey( toPath ) ) {
+					cached.Add( toPath, new FileInfo {
+						Id = data.Id,
+						IsFolder = false
+					} );
+				}
+				return new BoxFileMetaData( data );
 			} else {
 				throw new NotImplementedException( "Cannot handle " + sourceItem.Type + " file system type." );
 			}
@@ -513,9 +551,10 @@ namespace OAS.CloudStorage.Box {
 
 			if( sourceItem.Type.ToLowerInvariant( ) == "folder" ) {
 				var response = await _client.PutAsJsonAsync( string.Format( "{0}/{1}/folders/{2}", ApiBaseUrl, Version, sourceItem.Id ), new {
+					name = parentDirectoryAndTargetItemName.Item2,
 					parent = new {
-						id = destinationParent.Id
-					}
+						id = destinationParent.Id,
+					},
 				} );
 
 				switch( response.StatusCode ) {
@@ -528,13 +567,19 @@ namespace OAS.CloudStorage.Box {
 					default:
 						throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
 				}
-				return new BoxFolderMetaData( await response.Content.ReadAsAsync<BoxFolderInternal>( ) );
+				var data = await response.Content.ReadAsAsync<BoxFolderInternal>( );
+				if( cached.ContainsKey( fromPath ) ) {
+					cached.Add( toPath, cached[ fromPath ] );
+					cached.Remove( fromPath );
+				}
+				return new BoxFolderMetaData( data );
 
 			} else if( sourceItem.Type.ToLowerInvariant( ) == "file" ) {
 				var response = await _client.PutAsJsonAsync( string.Format( "{0}/{1}/files/{2}", ApiBaseUrl, Version, sourceItem.Id ), new {
+					name = parentDirectoryAndTargetItemName.Item2,
 					parent = new {
-						id = destinationParent.Id
-					}
+						id = destinationParent.Id,
+					},
 				} );
 
 				switch( response.StatusCode ) {
@@ -547,7 +592,13 @@ namespace OAS.CloudStorage.Box {
 					default:
 						throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
 				}
-				return new BoxFileMetaData( await response.Content.ReadAsAsync<BoxFileInternal>( ) );
+
+				var data = await response.Content.ReadAsAsync<BoxFileInternal>( );
+				if( cached.ContainsKey( fromPath ) ) {
+					cached.Add( toPath, cached[ fromPath ] );
+					cached.Remove( fromPath );
+				}
+				return new BoxFileMetaData( data );
 			} else {
 				throw new NotImplementedException( "Cannot handle " + sourceItem.Type + " file system type." );
 			}
@@ -620,20 +671,32 @@ namespace OAS.CloudStorage.Box {
 				queryParams.Add( new KeyValuePair<string, string>( "max_width", maxWidth.Value.ToString( ) ) );
 			}
 
-			var response = await _client.GetAsync( string.Format( "{0}/{1}/files/{2}/thumbnail.png{3}", ApiBaseUrl, Version, fileEntryId,
-				queryParams.ToQueryString( )
-			) );
+			HttpResponseMessage response;
+			bool retry;
 
-			switch( response.StatusCode ) {
-				case HttpStatusCode.OK:
-				case HttpStatusCode.Accepted:
-					break;
-				case HttpStatusCode.Unauthorized:
-					var msg = await response.Content.ReadAsStringAsync( );
-					throw new CloudStorageAuthorizationException( msg );
-				default:
-					throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
-			}
+			do {
+				response = await _client.GetAsync( string.Format( "{0}/{1}/files/{2}/thumbnail.png{3}", ApiBaseUrl, Version, fileEntryId,
+					queryParams.ToQueryString( )
+					) );
+
+				switch( response.StatusCode ) {
+					case HttpStatusCode.OK:
+						retry = false;
+						break;
+					case HttpStatusCode.Accepted:
+						retry = true;
+						var retryAfter = response.Headers.RetryAfter.Delta;
+						if( retryAfter.HasValue ) {
+							Thread.Sleep( retryAfter.Value );
+						}
+						break;
+					case HttpStatusCode.Unauthorized:
+						var msg = await response.Content.ReadAsStringAsync( );
+						throw new CloudStorageAuthorizationException( msg );
+					default:
+						throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
+				}
+			} while( retry );
 			return await response.Content.ReadAsStreamAsync( );
 		}
 
@@ -757,11 +820,7 @@ namespace OAS.CloudStorage.Box {
 
 
 			for( currentItemIndex = 0; currentItemIndex < pathItems.Length; ++currentItemIndex ) {
-				if( workingPath == string.Empty ) {
-					workingPath = pathItems[ currentItemIndex ];
-				} else {
-					workingPath = string.Format( "{0}/{1}", workingPath, pathItems[ currentItemIndex ] );
-				}
+				workingPath = string.Format( "{0}/{1}", workingPath, pathItems[ currentItemIndex ] );
 
 				if( cached.ContainsKey( workingPath ) ) {
 					var cachedResult = cached[ workingPath ];
@@ -771,6 +830,9 @@ namespace OAS.CloudStorage.Box {
 						//return the last item we found
 						break;
 					}
+				} else if( cached.Keys.Any( k => k.StartsWith( currentItemPath ) ) ) {
+					//This key isn't found, but it's sibling is. Assume the item doesn't exist
+					break;
 				} else {
 					BoxItemInternal result = null;
 
@@ -791,13 +853,8 @@ namespace OAS.CloudStorage.Box {
 							default:
 								throw new NotImplementedException( "The type " + entry.Type + " was not expected by GetItemByPath." );
 						}
-						string path;
+						string path = string.Format( "{0}/{1}", currentItemPath, entry.Name );
 
-						if( currentItemPath == string.Empty ) {
-							path = entry.Name;
-						} else {
-							path = string.Format( "{0}/{1}", currentItemPath, entry.Name );
-						}
 						if( !cached.ContainsKey( path ) ) {
 							cached.Add( path, fi );
 						}
@@ -836,11 +893,7 @@ namespace OAS.CloudStorage.Box {
 			string path = string.Empty;
 
 			for( int i = 0; i < startIndex; ++i ) {
-				if( path == string.Empty ) {
-					path = pathItems[ i ];
-				} else {
-					path = string.Format( "{0}/{1}", path, pathItems[ i ] );
-				}
+				path = string.Format( "{0}/{1}", path, pathItems[ i ] );
 			}
 
 			for( int i = startIndex; i < pathItems.Length; ++i ) {

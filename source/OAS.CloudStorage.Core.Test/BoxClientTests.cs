@@ -22,6 +22,7 @@ namespace OAS.CloudStorage.Core.Test {
 				SaveToken = session => {
 					var msg = string.Format( "Token updated:\nAccessToken: {0}\nRefreshToken: {1}", session.AccessToken, session.RefreshToken );
 					Debug.WriteLine( msg );
+					Debugger.Break( );
 					Assert.Fail( msg );
 				}
 			},
