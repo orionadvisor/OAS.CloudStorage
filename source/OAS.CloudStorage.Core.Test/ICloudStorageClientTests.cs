@@ -578,6 +578,26 @@ namespace OAS.CloudStorage.Core.Test {
 		}
 
 		[TestMethod]
+		public void Can_Get_MetaData_Folder_SubFolder( ) {
+			var path = TestFolder;
+			var metaData = this._client.GetMetaData( path ).Result;
+
+			//First folder is a folder
+			this.AssertIsFolder( metaData, path );
+
+			var folderMetaData = metaData as FolderMetaDataBase;
+			if( folderMetaData.Folders.Count == 0 ) {
+				Assert.Inconclusive( "Folder has no sub-folders" );
+			} else {
+				path = folderMetaData.Folders.First( ).Path;
+				metaData = this._client.GetMetaData( path ).Result;
+
+				//second folder is a folder
+				this.AssertIsFolder( metaData, path );
+			}
+		}
+
+		[TestMethod]
 		public void Can_Get_MetaData_Folder_Obscene_Number_Of_SubFolders( ) {
 			var count = 105;
 			try {
@@ -599,7 +619,7 @@ namespace OAS.CloudStorage.Core.Test {
 				Assert.Inconclusive( "Couldn't clean up folder" );
 			}
 		}
-		
+
 		[TestMethod]
 		public void Cannot_Get_MetaData_that_doesnt_Exist( ) {
 			string path = null;

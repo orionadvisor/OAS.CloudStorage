@@ -1,19 +1,17 @@
 ﻿#region Using Statements
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Formatting;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using System.Web.Caching;
 using OAS.CloudStorage.Core;
 using OAS.CloudStorage.Core.Exceptions;
 using OAS.CloudStorage.Box.Models;
@@ -49,7 +47,7 @@ namespace OAS.CloudStorage.Box {
 		private BoxUser _userLogin;
 		private HttpClient _client;
 
-		private Dictionary<string, FileInfo> cached = new Dictionary<string, FileInfo>( );
+		private ConcurrentDictionary<string, FileInfo> cached = new ConcurrentDictionary<string, FileInfo>( );
 		private enum BoxItemType {
 			File,
 			Folder,
@@ -407,7 +405,7 @@ namespace OAS.CloudStorage.Box {
 			var file = new BoxFileInternal( );
 			mergeItemToFile( col.Entries.First( ), file );
 			if( !cached.ContainsKey( path ) ) {
-				cached.Add( path, new FileInfo { Id = file.Id, IsFolder = false } );
+				cached.GetOrAdd( path, s => new FileInfo { Id = file.Id, IsFolder = false } );
 			}
 
 			return new BoxFileMetaData( file );
@@ -439,7 +437,8 @@ namespace OAS.CloudStorage.Box {
 				}
 
 				if( cached.ContainsKey( path ) ) {
-					cached.Remove( path );
+					FileInfo fi;
+					cached.TryRemove( path, out fi );
 				}
 				return new BoxFolderMetaData( item ) {
 					Path = response.Content.Headers.ContentLocation.ToString( ),
@@ -458,7 +457,8 @@ namespace OAS.CloudStorage.Box {
 						throw new CloudStorageRequestFailedException( "Unable to delete file." );
 				}
 				if( cached.ContainsKey( path ) ) {
-					cached.Remove( path );
+					FileInfo fi;
+					cached.TryRemove( path, out fi );
 				}
 				return new BoxFileMetaData( item ) {
 					Path = response.Content.Headers.ContentLocation.ToString( ),
@@ -499,7 +499,7 @@ namespace OAS.CloudStorage.Box {
 				}
 				var data = await response.Content.ReadAsAsync<BoxFolderInternal>( );
 				if( !cached.ContainsKey( toPath ) ) {
-					cached.Add( toPath, new FileInfo {
+					cached.GetOrAdd( toPath, s => new FileInfo {
 						Id = data.Id,
 						IsFolder = true
 					} );
@@ -527,7 +527,7 @@ namespace OAS.CloudStorage.Box {
 				}
 				var data = await response.Content.ReadAsAsync<BoxFileInternal>( );
 				if( !cached.ContainsKey( toPath ) ) {
-					cached.Add( toPath, new FileInfo {
+					cached.GetOrAdd( toPath, s => new FileInfo {
 						Id = data.Id,
 						IsFolder = false
 					} );
@@ -569,8 +569,9 @@ namespace OAS.CloudStorage.Box {
 				}
 				var data = await response.Content.ReadAsAsync<BoxFolderInternal>( );
 				if( cached.ContainsKey( fromPath ) ) {
-					cached.Add( toPath, cached[ fromPath ] );
-					cached.Remove( fromPath );
+					cached.GetOrAdd( toPath, s => cached[ fromPath ] );
+					FileInfo fi;
+					cached.TryRemove( fromPath, out fi );
 				}
 				return new BoxFolderMetaData( data );
 
@@ -595,8 +596,9 @@ namespace OAS.CloudStorage.Box {
 
 				var data = await response.Content.ReadAsAsync<BoxFileInternal>( );
 				if( cached.ContainsKey( fromPath ) ) {
-					cached.Add( toPath, cached[ fromPath ] );
-					cached.Remove( fromPath );
+					cached.GetOrAdd( toPath, s => cached[ fromPath ] );
+					FileInfo fi;
+					cached.TryRemove( fromPath, out fi );
 				}
 				return new BoxFileMetaData( data );
 			} else {
@@ -830,7 +832,7 @@ namespace OAS.CloudStorage.Box {
 						//return the last item we found
 						break;
 					}
-				} else if( cached.Keys.Any( k => k.StartsWith( currentItemPath ) ) ) {
+				} else if( cached.Keys.Any( k => k.StartsWith( currentItemPath + "/" ) ) ) {
 					//This key isn't found, but it's sibling is. Assume the item doesn't exist
 					break;
 				} else {
@@ -856,13 +858,13 @@ namespace OAS.CloudStorage.Box {
 						string path = string.Format( "{0}/{1}", currentItemPath, entry.Name );
 
 						if( !cached.ContainsKey( path ) ) {
-							cached.Add( path, fi );
+							cached.GetOrAdd( path, s => fi );
 						}
 					}
 					if( cached.ContainsKey( workingPath ) ) {
 						currentResult = cached[ workingPath ];
 					} else {
-						cached.Add( workingPath, null );
+						cached.GetOrAdd( workingPath, s => null );
 						//return the last item we found
 						break;
 					}
@@ -900,11 +902,8 @@ namespace OAS.CloudStorage.Box {
 				path = string.Format( "{0}/{1}", path, pathItems[ i ] );
 				currentFolder = await this.createFolder( parentId, pathItems[ i ] );
 
-				if( cached.ContainsKey( path ) ) {
-					cached[ path ] = new FileInfo { Id = currentFolder.Id, IsFolder = true };
-				} else {
-					cached.Add( path, new FileInfo { Id = currentFolder.Id, IsFolder = true } );
-				}
+				var fi = new FileInfo { Id = currentFolder.Id, IsFolder = true };
+				cached.AddOrUpdate( path, fi, ( s, info ) => fi );
 
 				parentId = currentFolder.Id;
 			}
