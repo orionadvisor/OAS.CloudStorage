@@ -35,6 +35,26 @@ namespace OAS.CloudStorage.Egnyte {
 		/// </summary>
 		public Root Root { get; set; }
 
+		private string _basePath;
+		public string BasePath {
+			get {
+				return _basePath;
+			}
+			set {
+				if( string.IsNullOrEmpty( value ) || value == "/" ) {
+					_basePath = null;
+				} else {
+					if( !value.StartsWith( "/" ) ) {
+						value = "/" + value;
+					}
+					if( value.EndsWith( "/" ) ) {
+						value = value.Substring( 0, value.Length - 1 );
+					}
+
+					_basePath = value;
+				}
+			}
+		}
 		#endregion
 
 		#region Private Properties
@@ -138,9 +158,8 @@ namespace OAS.CloudStorage.Egnyte {
 		/// <param name="listContent">if false then do not include contents of folder in response</param>
 		/// <returns>MetaData of the newly created folder</returns>
 		public async Task<MetaDataBase> GetMetaData( string path, bool listContent ) {
-			if( string.IsNullOrEmpty( path ) || !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
+
 			if( path != "/" && path.EndsWith( "/" ) ) {
 				path = path.Substring( 0, path.Length - 1 );
 			}
@@ -219,9 +238,7 @@ namespace OAS.CloudStorage.Egnyte {
 		/// <param name="path">The path of the file to download</param>
 		/// <returns>The files raw bytes</returns>
 		public async Task<Stream> GetFile( string path ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var response = await this._client.GetAsync( string.Format( "pubapi/{0}/fs-content{1}", Version,
 				path
@@ -261,9 +278,7 @@ namespace OAS.CloudStorage.Egnyte {
 		}
 
 		private async Task<MetaDataBase> UploadFile( string path, HttpContent dataContent ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var response = await this._client.PostAsync( string.Format( "pubapi/{0}/fs-content{1}", Version,
 				path
@@ -292,9 +307,7 @@ namespace OAS.CloudStorage.Egnyte {
 		/// <param name="path">The Path of the file or folder to delete.</param>
 		/// <returns></returns>
 		public async Task<MetaDataBase> Delete( string path ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var response = await this._client.DeleteAsync( string.Format( "pubapi/{0}/fs{1}", Version,
 				path )
@@ -323,13 +336,8 @@ namespace OAS.CloudStorage.Egnyte {
 		/// <param name="toPath">The path to where the file or folder is getting copied</param>
 		/// <returns>True on success</returns>
 		public async Task<MetaDataBase> Copy( string fromPath, string toPath ) {
-			if( !fromPath.StartsWith( "/" ) ) {
-				fromPath = "/" + fromPath;
-			}
-
-			if( !toPath.StartsWith( "/" ) ) {
-				toPath = "/" + toPath;
-			}
+			fromPath = FixPath( fromPath );
+			toPath = FixPath( toPath );
 
 			var response = await this._client.PostAsJsonAsync( string.Format( "pubapi/{0}/fs{1}", Version,
 				fromPath ), new {
@@ -361,13 +369,8 @@ namespace OAS.CloudStorage.Egnyte {
 		/// <param name="toPath">The path to where the file or folder is getting moved</param>
 		/// <returns>True on success</returns>
 		public async Task<MetaDataBase> Move( string fromPath, string toPath ) {
-			if( !fromPath.StartsWith( "/" ) ) {
-				fromPath = "/" + fromPath;
-			}
-
-			if( !toPath.StartsWith( "/" ) ) {
-				toPath = "/" + toPath;
-			}
+			fromPath = FixPath( fromPath );
+			toPath = FixPath( toPath );
 
 			var response = await this._client.PostAsJsonAsync( string.Format( "pubapi/{0}/fs{1}", Version,
 				fromPath ), new {
@@ -398,9 +401,7 @@ namespace OAS.CloudStorage.Egnyte {
 		/// <param name="path">The path to the folder to create</param>
 		/// <returns>MetaData of the newly created folder</returns>
 		public async Task<MetaDataBase> CreateFolder( string path ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var response = await this._client.PostAsJsonAsync( string.Format( "pubapi/{0}/fs{1}", Version,
 				path ),
@@ -454,6 +455,18 @@ namespace OAS.CloudStorage.Egnyte {
 				queryParams.Add( new KeyValuePair<string, string>( "mobile", ( mobile.Value ? 1 : 0 ).ToString( ) ) );
 			}
 			return string.Format( "{0}/puboauth/token{1}", this.ApiBaseUrl, queryParams.ToQueryString( ) );
+		}
+
+		private string FixPath( string path ) {
+			if( string.IsNullOrEmpty( path ) || !path.StartsWith( "/" ) ) {
+				path = "/" + path;
+			}
+
+			if( !string.IsNullOrEmpty( this.BasePath ) ) {
+				path = this.BasePath + path;
+			}
+
+			return path;
 		}
 	}
 }

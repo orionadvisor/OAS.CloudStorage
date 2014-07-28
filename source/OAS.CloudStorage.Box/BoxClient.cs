@@ -34,6 +34,26 @@ namespace OAS.CloudStorage.Box {
 			}
 		}
 
+		private string _basePath;
+		public string BasePath {
+			get {
+				return _basePath;
+			}
+			set {
+				if( string.IsNullOrEmpty( value ) || value == "/" ) {
+					_basePath = null;
+				} else {
+					if( !value.StartsWith( "/" ) ) {
+						value = "/" + value;
+					}
+					if( value.EndsWith( "/" ) ) {
+						value = value.Substring( 0, value.Length - 1 );
+					}
+
+					_basePath = value;
+				}
+			}
+		}
 		#endregion
 		private const string ApiBaseUrl = "https://api.box.com";
 		private const string ApiAuthUrl = "https://www.box.com/api/oauth2";
@@ -339,9 +359,7 @@ namespace OAS.CloudStorage.Box {
 		}
 
 		private async Task<MetaDataBase> uploadFile( string path, HttpContent dataContent ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var parts = extractParentDirectoryAndItemNameFromFullPath( path );
 
@@ -953,6 +971,18 @@ namespace OAS.CloudStorage.Box {
 			//file.Shared_Link = boxItem.Shared_Link;
 			file.Parent = boxItem.Parent;
 			file.Item_Status = boxItem.Item_Status;
+		}
+
+		private string FixPath( string path ) {
+			if( string.IsNullOrEmpty( path ) || !path.StartsWith( "/" ) ) {
+				path = "/" + path;
+			}
+
+			if( !string.IsNullOrEmpty( this.BasePath ) ) {
+				path = this.BasePath + path;
+			}
+
+			return path;
 		}
 	}
 }

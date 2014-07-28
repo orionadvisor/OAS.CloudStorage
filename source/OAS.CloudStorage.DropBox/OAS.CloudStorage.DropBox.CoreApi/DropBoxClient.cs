@@ -37,6 +37,26 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// </summary>
 		public Root Root { get; set; }
 
+		private string _basePath;
+		public string BasePath {
+			get {
+				return _basePath;
+			}
+			set {
+				if( string.IsNullOrEmpty( value ) || value == "/" ) {
+					_basePath = null;
+				} else {
+					if( !value.StartsWith( "/" ) ) {
+						value = "/" + value;
+					}
+					if( value.EndsWith( "/" ) ) {
+						value = value.Substring( 0, value.Length - 1 );
+					}
+
+					_basePath = value;
+				}
+			}
+		}
 		#endregion
 
 		#region Private Properties
@@ -83,7 +103,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		public DropBoxClient( string apiKey, string appSecret, AuthenticationMethod authenticationMethod = AuthenticationMethod.OAuth2 ) {
 			Guard.NotNullOrEmpty( ( ) => apiKey, apiKey );
 			Guard.NotNullOrEmpty( ( ) => appSecret, appSecret );
-			
+
 			this.LoadClient( );
 			this._apiKey = apiKey;
 			this._appsecret = appSecret;
@@ -244,9 +264,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="path">The path of the file or folder</param>
 		/// <returns></returns>
 		public async Task<MetaDataBase> GetMetaData( string path ) {
-			if( string.IsNullOrEmpty( path ) || !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var response = await this._client.GetAsync( string.Format( "{0}/{1}/metadata/{2}{3}", ApiBaseUrl, Version, this.RootString,
 				path )
@@ -306,9 +324,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="path">The Path of the file or folder to delete.</param>
 		/// <returns></returns>
 		public async Task<MetaDataBase> Delete( string path ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var queryParams = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "path", path ),
@@ -340,13 +356,8 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="toPath">The path to where the file or folder is getting copied</param>
 		/// <returns>True on success</returns>
 		public async Task<MetaDataBase> Copy( string fromPath, string toPath ) {
-			if( !fromPath.StartsWith( "/" ) ) {
-				fromPath = "/" + fromPath;
-			}
-
-			if( !toPath.StartsWith( "/" ) ) {
-				toPath = "/" + toPath;
-			}
+			fromPath = FixPath( fromPath );
+			toPath = FixPath( toPath );
 
 			var queryParams = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "from_path", fromPath ),
@@ -378,13 +389,8 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="toPath">The path to where the file or folder is getting moved</param>
 		/// <returns>True on success</returns>
 		public async Task<MetaDataBase> Move( string fromPath, string toPath ) {
-			if( !fromPath.StartsWith( "/" ) ) {
-				fromPath = "/" + fromPath;
-			}
-
-			if( !toPath.StartsWith( "/" ) ) {
-				toPath = "/" + toPath;
-			}
+			fromPath = FixPath( fromPath );
+			toPath = FixPath( fromPath );
 
 			var queryParams = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "from_path", fromPath ),
@@ -411,9 +417,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		}
 
 		private async Task<MetaDataBase> GetVersions( DropBoxMetaDataInternal internalObj, string path, int limit ) {
-			if( string.IsNullOrEmpty( path ) || !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var queryParams = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "rev_limit", limit.ToString( ) )
@@ -456,9 +460,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="searchString">The search string </param>
 		/// <param name="path">The path of the file or folder</param>
 		public async Task<List<MetaDataBase>> Search( string searchString, string path ) {
-			if( string.IsNullOrEmpty( path ) || !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var queryParams = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "query", searchString )
@@ -491,9 +493,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="rev">Revision string as featured by <code>MetaData.Rev</code></param>
 		/// <returns>The files raw bytes</returns>
 		public async Task<Stream> GetFile( string path, Range<long>? range = null, string rev = null ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var request = new HttpRequestMessage {
 				Method = HttpMethod.Get
@@ -530,9 +530,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		}
 
 		private async Task<MetaDataBase> uploadFilePUT( string path, HttpContent dataContent, bool? overwrite = null, int? parent_rev = null ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var queryParams = new List<KeyValuePair<string, string>> { };
 			if( overwrite.HasValue ) {
@@ -626,9 +624,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="overwrite">Specify wether the file upload should replace an existing file.</param>
 		/// <returns>A object representing the chunked upload on success</returns>
 		public async Task<MetaDataBase> CommitChunkedUpload( ChunkedUpload upload, string path, bool overwrite = true ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var keys = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "overwrite", overwrite.ToString( ) ),
@@ -664,9 +660,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="path"></param>
 		/// <returns></returns>
 		public async Task<CopyRefResponse> GetCopyRef( string path ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var response = await this._client.GetAsync( string.Format( "{0}/{1}/copy_ref/{2}{3}", ApiBaseUrl, Version, this.RootString,
 				path )
@@ -692,9 +686,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="toPath">The path to where the file or folder is getting copied</param>
 		/// <returns>True on success</returns>
 		public async Task<MetaDataBase> CopyFromCopyRef( string fromCopyRef, string toPath ) {
-			if( !toPath.StartsWith( "/" ) ) {
-				toPath = "/" + toPath;
-			}
+			toPath = FixPath( toPath );
 
 			var queryParams = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "from_copy_ref", fromCopyRef ),
@@ -727,9 +719,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="path">The path to the folder to create</param>
 		/// <returns>MetaData of the newly created folder</returns>
 		public async Task<MetaDataBase> CreateFolder( string path ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var queryParams = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "path", path ),
@@ -764,9 +754,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="shortUrl"></param>
 		/// <returns></returns>
 		public async Task<ShareResponse> GetShare( string path, bool shortUrl = true ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var queryParams = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "short_url", shortUrl.ToString( ) )
@@ -797,9 +785,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="path"></param>
 		/// <returns></returns>
 		public async Task<ShareResponse> GetMedia( string path ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var response = await this._client.GetAsync( string.Format( "{0}/{1}/media/{2}{3}", ApiBaseUrl, Version, this.RootString,
 				path )
@@ -864,9 +850,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 		/// <param name="format">The format to return the thumbnail as.</param>
 		/// <returns></returns>
 		public async Task<Stream> GetThumbnail( string path, ThumbnailSize size, ThumbnailFormat format ) {
-			if( !path.StartsWith( "/" ) ) {
-				path = "/" + path;
-			}
+			path = FixPath( path );
 
 			var queryParams = new List<KeyValuePair<string, string>> {
 				new KeyValuePair<string, string>( "size", this.ThumbnailSizeString( size ) ),
@@ -1011,6 +995,17 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 			}
 		}
 
+		private string FixPath( string path ) {
+			if( string.IsNullOrEmpty( path ) || !path.StartsWith( "/" ) ) {
+				path = "/" + path;
+			}
+
+			if( !string.IsNullOrEmpty( this.BasePath ) ) {
+				path = this.BasePath + path;
+			}
+
+			return path;
+		}
 		#endregion
 	}
 }

@@ -40,6 +40,6 @@ namespace OAS.CloudStorage.Core {
 		//Task<DeltaPage> GetDelta( string cursor );
 
 		string BuildAuthorizeUrl( string redirectUri );
-
+		string BasePath { get; set; }
 	}
 }
