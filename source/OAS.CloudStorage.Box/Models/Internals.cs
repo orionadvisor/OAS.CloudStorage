@@ -38,7 +38,7 @@ namespace OAS.CloudStorage.Box.Models {
 
 	internal class BoxPathEntryInternal {
 		public string Type { get; set; }
-		public int Id { get; set; }
+		public string Id { get; set; }
 		public int? Sequence_Id { get; set; }
 		public string ETag { get; set; }
 		public string Name { get; set; }

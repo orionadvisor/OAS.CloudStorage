@@ -773,7 +773,7 @@ namespace OAS.CloudStorage.Box {
 					}
 
 					if( itemType == BoxItemType.Folder ) {
-						targetItem = await this.createFolderForRemainingPath( lastExistingItemInThePathInfo.Item1.Id, pathItems, lastExistingItemInThePathInfo.Item3 );
+						targetItem = await this.createFolderForRemainingPath( lastExistingItemInThePathInfo.Item1 == null ? "0" : lastExistingItemInThePathInfo.Item1.Id, pathItems, lastExistingItemInThePathInfo.Item3 );
 					} else {
 						throw new NotImplementedException( "The type " + itemType.ToString( ) + " was not expected by GetItemByPath." );
 					}

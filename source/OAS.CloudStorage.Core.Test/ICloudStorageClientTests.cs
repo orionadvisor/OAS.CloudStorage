@@ -207,6 +207,31 @@ namespace OAS.CloudStorage.Core.Test {
 		}
 
 		[TestMethod]
+		public void Can_Upload_File_To_New_Deeply_Nested_Folder( ) {
+			FileInfo localFile = null;
+			string newFolderName = Guid.NewGuid( ).ToString( );
+			string deepPath = string.Join( "/", new string[ new Random( ).Next( 5, 10 ) ].Select( s => Guid.NewGuid( ).ToString( ) ).ToArray( ) );
+
+			try {
+				localFile = FileFactory.MakeFile( extension: "txt" );
+			} catch {
+				Assert.Inconclusive( "Couldn't make file" );
+			}
+
+			var uploaded = this._client.UploadFile( string.Format( "{0}/{1}/{2}/{3}", this.TestFolder, newFolderName, deepPath, localFile.Name ), File.OpenRead( localFile.Name ) ).Result;
+
+			Assert.IsNotNull( uploaded );
+			Assert.AreEqual( string.Format( "{0}/{1}/{2}/{3}", this.TestFolder, newFolderName, deepPath, localFile.Name ), uploaded.Path, "File not uploaded to correct location" );
+
+			try {
+				File.Delete( localFile.FullName );
+				var deleted = this._client.Delete( string.Format( "{0}/{1}", this.TestFolder, newFolderName ) ).Result;
+			} catch {
+				Assert.Inconclusive( "Couldn't clean up files" );
+			}
+		}
+
+		[TestMethod]
 		public void Can_Upload_File_With_Special_Char( ) {
 			FileInfo localFile = null;
 			try {
