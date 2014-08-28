@@ -390,7 +390,7 @@ namespace OAS.CloudStorage.Egnyte {
 
 			return new EgnyteFile {
 				Path = toPath,
-				IsFolder = true,
+				IsFolder = false,
 				Name = this.GetNameFromPath( toPath )
 			};
 		}
