@@ -388,9 +388,9 @@ namespace OAS.CloudStorage.Egnyte {
 					throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
 			}
 
-			return new EgnyteMetaData {
+			return new EgnyteFile {
 				Path = toPath,
-				IsFolder = false,
+				IsFolder = true,
 				Name = this.GetNameFromPath( toPath )
 			};
 		}
@@ -420,10 +420,12 @@ namespace OAS.CloudStorage.Egnyte {
 					throw new HttpException( (int) response.StatusCode, response.Content.ReadAsStringAsync( ).Result );
 			}
 
-			return new EgnyteMetaData {
+			return new EgnyteFolder {
 				Path = path,
-				IsFolder = false,
-				Name = this.GetNameFromPath( path )
+				IsFolder = true,
+				Name = this.GetNameFromPath( path ),
+				Files = new List<FileMetaDataBase>( ),
+				Folders = new List<FolderMetaDataBase>( )
 			};
 		}
 

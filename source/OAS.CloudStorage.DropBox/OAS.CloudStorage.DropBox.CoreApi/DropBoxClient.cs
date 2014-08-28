@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -946,8 +947,8 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 					Root = i.Root,
 					Icon = i.Icon,
 					Revision = i.Revision,
-					Files = i.Contents == null ? null : i.Contents.Where( c => c.Is_Dir == false ).Select( c => (FileMetaDataBase) this.ConvertInternalToMetaData( c ) ).ToList( ),
-					Folders = i.Contents == null ? null : i.Contents.Where( c => c.Is_Dir ).Select( c => (FolderMetaDataBase) this.ConvertInternalToMetaData( c ) ).ToList( )
+					Files = i.Contents == null ? new List<FileMetaDataBase>() : i.Contents.Where( c => c.Is_Dir == false ).Select( c => (FileMetaDataBase) this.ConvertInternalToMetaData( c ) ).ToList( ),
+					Folders = i.Contents == null ? new List<FolderMetaDataBase>( ) : i.Contents.Where( c => c.Is_Dir ).Select( c => (FolderMetaDataBase) this.ConvertInternalToMetaData( c ) ).ToList( )
 				};
 			}
 			return new DropBoxFile( ) {

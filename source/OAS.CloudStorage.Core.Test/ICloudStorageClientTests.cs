@@ -761,9 +761,16 @@ namespace OAS.CloudStorage.Core.Test {
 
 		[TestMethod]
 		public void Can_Create_Folder( ) {
-			var metaData = this._client.CreateFolder( string.Format( this.TestFolder + "/TestFolder1{0:yyyyMMddhhmmss}", DateTime.Now ) ).Result;
+			var path = string.Format( this.TestFolder + "/TestFolder1{0:yyyyMMddhhmmss}", DateTime.Now );
+			var metaData = this._client.CreateFolder( path ).Result;
 
 			Assert.IsNotNull( metaData );
+			this.AssertIsFolder( metaData, path );
+			var folder = metaData as FolderMetaDataBase;
+			Assert.IsNotNull( folder.Files, "Newly created folder should have an empty collection of files" );
+			Assert.AreEqual( 0, folder.Files.Count, "Newly created folder should have 0 files" );
+			Assert.IsNotNull( folder.Folders, "Newly created folder should have an empty collection of folders" );
+			Assert.AreEqual( 0, folder.Folders.Count, "Newly created folder should have 0 folders" );
 
 			try {
 				var deleted = this._client.Delete( metaData.Path ).Result;
