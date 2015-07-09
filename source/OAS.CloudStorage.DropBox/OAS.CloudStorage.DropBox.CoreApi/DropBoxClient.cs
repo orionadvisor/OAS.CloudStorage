@@ -1001,7 +1001,7 @@ namespace OAS.CloudStorage.DropBox.CoreApi {
 				path = "/" + path;
 			}
 
-			if( !string.IsNullOrEmpty( this.BasePath ) ) {
+			if( !string.IsNullOrEmpty( this.BasePath ) && !path.StartsWith(this.BasePath) ) {
 				path = this.BasePath + path;
 			}
 
